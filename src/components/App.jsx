@@ -1,91 +1,79 @@
 import { ImageGallery } from './ImageGallery/ImageGallery';
 import { Searchbar } from './Searchbar/Searchbar';
-import React, { Component } from 'react';
+import React, { useEffect, useState } from 'react';
 import { getData } from './API/api';
 import { Loader } from './Loader/Loader';
 import { Button } from './Button/Button';
 import { Notify } from 'notiflix/build/notiflix-notify-aio';
 import { Modal } from './Modal/Modal';
 
-export class App extends Component {
-    state = {
-    images: [],
-    isLoading: false,
-    page: 1,
-    search: '',
-    showModal: false,
-    selectedImage: '',
-    total: 0,
-    };
+export const App = () => {
+  const [images, setImages] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [query, setQuery] = useState('');
+  const [showModal, setShowModal] = useState(false);
+  const [largeImage, setLargeImage] = useState('');
+  const [total, setTotal] = useState(0);
 
-    componentDidUpdate(_, prevState) {
-    const { search, page } = this.state;
-    if (prevState.search !== search || prevState.page !== page) {
-        this.fetchImages(page, search);
+  useEffect(() => {
+    if (query.trim() !== '') {
+      fetchImages(page, query);
     }
-    }
+  }, [query, page]);
 
-    fetchImages = async (page, search) => {
-    this.setState({ isLoading: true });
+  const fetchImages = async (page, query) => {
+    setIsLoading(true);
     try {
-        const { hits, totalHits } = await getData(search, page);
-        if (hits.length === 0) {
+      const { hits, totalHits } = await getData(query, page);
+      if (hits.length === 0) {
         Notify.failure(
-            'There are no images found. Please, enter a valid value'
+          'There are no images found. Please, enter a valid value'
         );
-        }
-        this.setState(prevState => {
-        return {
-            images: [...prevState.images, ...hits],
-            total: totalHits,
-        };
-        });
+      }
+      setImages(prevImages => [...prevImages, ...hits]);
+      setTotal(totalHits);
     } catch (error) {
-        this.setState({ error: error.message });
+      console.error();
     } finally {
-        this.setState({ isLoading: false });
+      setIsLoading(false);
     }
-    };
+  };
 
-    handleSearch = search => {
+  const handleSearch = search => {
     if (search.trim() === '') {
-        return Notify.warning('You wrote nothing');
-    } else if (this.state.search !== search) {
-        this.setState({ images: [], page: 1, search });
+      return Notify.warning('You wrote nothing');
+    } else if (search !== query) {
+      setImages([]);
+      setPage(1);
+      setQuery(search);
     }
-    };
+  };
 
-    handleLoadMore = () => {
-    const { page } = this.state;
-    this.setState({ page: page + 1 });
-    };
+  const handleLoadMore = () => {
+    setPage(prevPage => prevPage + 1);
+  };
 
-    toggleModal = (largeImageURL = '') => {
-    this.setState(({ showModal }) => ({
-        showModal: !showModal,
-        selectedImage: largeImageURL,
-    }));
-    };
+  const toggleModal = (largeImageURL = '') => {
+    setShowModal(prevState => !prevState);
+    setLargeImage(largeImageURL);
+  };
 
-    render() {
-    const { isLoading, images, showModal, selectedImage, total, page } =
-        this.state;
-    const totalPage = Math.ceil(total / 12);
+  const totalPage = Math.ceil(total / 12);
 
-    return (
-        <div className="app">
-        <Searchbar onSearch={this.handleSearch} />
-        {images.length > 0 && (
-            <ImageGallery images={images} toggleModal={this.toggleModal} />
-        )}
-        {isLoading && <Loader />}
-        {images.length > 0 && totalPage > page && (
-            <Button onLoadMore={this.handleLoadMore}></Button>
-        )}
-        {showModal && (
-            <Modal onClickClose={this.toggleModal} image={selectedImage}></Modal>
-        )}
-        </div>
-    );
-    }
-    }
+  return (
+    <div className="app">
+      <Searchbar onSearch={handleSearch} />
+      {images.length > 0 && (
+        <ImageGallery images={images} toggleModal={toggleModal} />
+      )}
+      {isLoading && <Loader />}
+      {images.length > 0 && totalPage > page && (
+        <Button onLoadMore={handleLoadMore}></Button>
+      )}
+      {showModal && (
+        <Modal onClickClose={toggleModal} image={largeImage}></Modal>
+      )}
+    </div>
+  );
+};
